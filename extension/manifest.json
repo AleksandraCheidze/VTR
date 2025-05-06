@@ -1,7 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Video Text Copier (Test)",
+  "name": "Video Text Extractor",
   "version": "1.0",
+  "description": "Extract and copy text from videos with one click. Hold Ctrl, select the area, and get the text instantly.",
   "permissions": ["activeTab", "scripting", "clipboardWrite"],
   "host_permissions": [
     "<all_urls>",
@@ -10,10 +11,15 @@
   "action": {
     "default_popup": "popup/popup.html",
     "default_icon": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
+      "16": "icons/icon16.svg",
+      "48": "icons/icon48.svg",
+      "128": "icons/icon128.svg"
     }
+  },
+  "icons": {
+    "16": "icons/icon16.svg",
+    "48": "icons/icon48.svg",
+    "128": "icons/icon128.svg"
   },
   "web_accessible_resources": [{
     "resources": ["content-script.js"],
