@@ -2,6 +2,40 @@
   let selectionBox = null;
   let startX, startY, endX, endY;
   let isSelecting = false;
+  let isCtrlPressed = false; // Флаг для отслеживания нажатия Ctrl
+
+  // Добавляем глобальные обработчики для отслеживания нажатия Ctrl
+  function setupGlobalListeners() {
+    // Отслеживаем нажатие и отпускание клавиш
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Control' || e.key === 'Meta') { // Meta для Mac (Command)
+        isCtrlPressed = true;
+        updateCursor();
+      }
+    });
+
+    document.addEventListener('keyup', function(e) {
+      if (e.key === 'Control' || e.key === 'Meta') { // Meta для Mac (Command)
+        isCtrlPressed = false;
+        updateCursor();
+      }
+    });
+
+    // Сбрасываем флаг при потере фокуса окном
+    window.addEventListener('blur', function() {
+      isCtrlPressed = false;
+      updateCursor();
+    });
+  }
+
+  // Обновляем курсор в зависимости от состояния Ctrl
+  function updateCursor() {
+    if (isCtrlPressed) {
+      document.body.style.cursor = 'crosshair';
+    } else {
+      document.body.style.cursor = '';
+    }
+  }
 
   function initSelection() {
     // Создаем элемент для выделения области
@@ -28,7 +62,7 @@
     instructions.style.padding = '10px';
     instructions.style.borderRadius = '5px';
     instructions.style.zIndex = '10001';
-    instructions.textContent = 'Нажмите и перетащите для выделения области с текстом. Нажмите ESC для отмены.';
+    instructions.textContent = 'Зажмите Ctrl и выделите область с текстом. Нажмите ESC для отмены.';
     instructions.id = 'selection-instructions';
     document.body.appendChild(instructions);
 
@@ -61,6 +95,11 @@
   }
 
   function handleMouseDown(e) {
+    // Проверяем, зажата ли клавиша Ctrl
+    if (!isCtrlPressed) {
+      return true; // Если Ctrl не зажат, позволяем событию обрабатываться как обычно
+    }
+
     // Предотвращаем стандартное поведение браузера
     e.preventDefault();
     e.stopPropagation();
@@ -134,9 +173,17 @@
   }
 
   function handleKeyDown(e) {
+    // Обработка нажатия Ctrl
+    if (e.key === 'Control' || e.key === 'Meta') {
+      isCtrlPressed = true;
+      updateCursor();
+    }
+
     // Отмена выделения при нажатии ESC
     if (e.key === 'Escape') {
       isSelecting = false;
+      isCtrlPressed = false;
+      updateCursor();
 
       // Удаляем элементы и обработчики
       if (selectionBox) {
@@ -149,9 +196,9 @@
         document.body.removeChild(instructions);
       }
 
-      document.removeEventListener('mousedown', handleMouseDown);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mousedown', handleMouseDown, { capture: true, passive: false });
+      document.removeEventListener('mousemove', handleMouseMove, { capture: true, passive: false });
+      document.removeEventListener('mouseup', handleMouseUp, { capture: true, passive: false });
       document.removeEventListener('keydown', handleKeyDown);
     }
   }
@@ -549,6 +596,9 @@
       return null;
     }
   }
+
+  // Устанавливаем глобальные обработчики для отслеживания нажатия Ctrl
+  setupGlobalListeners();
 
   // Запускаем выделение сразу при загрузке скрипта
   initSelection();
