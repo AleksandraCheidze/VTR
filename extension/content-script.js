@@ -248,6 +248,7 @@
             // Проверяем, что в ответе есть текст
             if (!data.text && data.error) {
               throw new Error(`API error: ${data.error}`);
+            }
           } catch (fetchError) {
             clearTimeout(timeoutId); // Очищаем таймаут в случае ошибки
             console.error('Ошибка при запросе на сервер:', fetchError);
