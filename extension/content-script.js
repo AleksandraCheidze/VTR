@@ -591,6 +591,62 @@
 
       document.body.appendChild(loadingIndicator);
 
+      // Добавляем таймаут для индикатора загрузки (30 секунд)
+      setTimeout(() => {
+        const indicator = document.getElementById('loading-indicator');
+        if (indicator && indicator.parentNode) {
+          // Если индикатор все еще отображается через 30 секунд, показываем сообщение об ошибке
+
+          // Анимация исчезновения
+          indicator.style.opacity = '0';
+          setTimeout(() => {
+            if (indicator.parentNode) {
+              document.body.removeChild(indicator);
+            }
+
+            // Показываем сообщение об ошибке
+            const timeoutNotification = document.createElement('div');
+            timeoutNotification.style.position = 'fixed';
+            timeoutNotification.style.top = '20px';
+            timeoutNotification.style.left = '50%';
+            timeoutNotification.style.transform = 'translateX(-50%)';
+            timeoutNotification.style.backgroundColor = 'rgba(211, 47, 47, 0.95)'; // Красный цвет
+            timeoutNotification.style.color = 'white';
+            timeoutNotification.style.padding = '15px 20px';
+            timeoutNotification.style.borderRadius = '8px';
+            timeoutNotification.style.zIndex = '10001';
+            timeoutNotification.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.3)';
+            timeoutNotification.style.fontFamily = 'Arial, sans-serif';
+            timeoutNotification.style.fontSize = '16px';
+            timeoutNotification.style.textAlign = 'center';
+            timeoutNotification.style.opacity = '0';
+            timeoutNotification.style.transition = 'opacity 0.3s ease-in-out';
+            timeoutNotification.innerHTML = `
+              <div style="display: flex; align-items: center;">
+                <span style="font-size: 20px; margin-right: 10px;">⏱️</span>
+                <strong>Recognition is taking too long. Please try again or select a smaller area.</strong>
+              </div>
+            `;
+            document.body.appendChild(timeoutNotification);
+
+            // Анимация появления
+            setTimeout(() => {
+              timeoutNotification.style.opacity = '1';
+            }, 10);
+
+            // Удаляем уведомление через 5 секунд
+            setTimeout(() => {
+              timeoutNotification.style.opacity = '0';
+              setTimeout(() => {
+                if (timeoutNotification.parentNode) {
+                  document.body.removeChild(timeoutNotification);
+                }
+              }, 300);
+            }, 5000);
+          }, 300);
+        }
+      }, 30000);
+
       // Отправляем изображение на сервер для распознавания
       try {
         let data;
@@ -672,10 +728,16 @@
           });
           console.log('Получен ответ от сервера (через background.js):', data);
         }
-      // Удаляем индикатор загрузки
+      // Удаляем индикатор загрузки с анимацией
       const indicator = document.getElementById('loading-indicator');
       if (indicator) {
-        document.body.removeChild(indicator);
+        // Анимация исчезновения
+        indicator.style.opacity = '0';
+        setTimeout(() => {
+          if (indicator.parentNode) {
+            document.body.removeChild(indicator);
+          }
+        }, 300);
       }
 
       if (data.text) {
