@@ -32,14 +32,39 @@
     instructions.id = 'selection-instructions';
     document.body.appendChild(instructions);
 
-    // Добавляем обработчики событий
-    document.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    // Добавляем обработчики событий с опцией capture и passive: false
+    document.addEventListener('mousedown', handleMouseDown, { capture: true, passive: false });
+    document.addEventListener('mousemove', handleMouseMove, { capture: true, passive: false });
+    document.addEventListener('mouseup', handleMouseUp, { capture: true, passive: false });
     document.addEventListener('keydown', handleKeyDown);
+
+    // Добавляем обработчик для предотвращения стандартного поведения на видео
+    const videoElements = document.querySelectorAll('video');
+    videoElements.forEach(video => {
+      video.addEventListener('click', function(e) {
+        if (isSelecting) {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+      }, { capture: true, passive: false });
+
+      // Сохраняем текущее состояние видео
+      if (video.paused) {
+        video.dataset.wasPaused = 'true';
+      } else {
+        video.dataset.wasPaused = 'false';
+        // Приостанавливаем видео на время выделения
+        video.pause();
+      }
+    });
   }
 
   function handleMouseDown(e) {
+    // Предотвращаем стандартное поведение браузера
+    e.preventDefault();
+    e.stopPropagation();
+
     // Начинаем выделение
     isSelecting = true;
     startX = e.clientX + window.scrollX;
@@ -47,19 +72,31 @@
     endX = startX;
     endY = startY;
     updateSelectionBox();
+
+    return false; // Предотвращаем дальнейшую обработку события
   }
 
   function handleMouseMove(e) {
     if (!isSelecting) return;
 
+    // Предотвращаем стандартное поведение браузера
+    e.preventDefault();
+    e.stopPropagation();
+
     // Обновляем конечные координаты
     endX = e.clientX + window.scrollX;
     endY = e.clientY + window.scrollY;
     updateSelectionBox();
+
+    return false; // Предотвращаем дальнейшую обработку события
   }
 
   function handleMouseUp(e) {
     if (!isSelecting) return;
+
+    // Предотвращаем стандартное поведение браузера
+    e.preventDefault();
+    e.stopPropagation();
 
     // Завершаем выделение
     isSelecting = false;
@@ -68,10 +105,21 @@
     updateSelectionBox();
 
     // Удаляем обработчики событий
-    document.removeEventListener('mousedown', handleMouseDown);
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
+    document.removeEventListener('mousedown', handleMouseDown, { capture: true, passive: false });
+    document.removeEventListener('mousemove', handleMouseMove, { capture: true, passive: false });
+    document.removeEventListener('mouseup', handleMouseUp, { capture: true, passive: false });
     document.removeEventListener('keydown', handleKeyDown);
+
+    // Восстанавливаем состояние видео
+    const videoElements = document.querySelectorAll('video');
+    videoElements.forEach(video => {
+      if (video.dataset.wasPaused === 'false') {
+        // Если видео было воспроизведено до выделения, возобновляем воспроизведение
+        video.play().catch(err => console.error('Ошибка при возобновлении видео:', err));
+      }
+      // Удаляем временные данные
+      delete video.dataset.wasPaused;
+    });
 
     // Удаляем инструкции
     const instructions = document.getElementById('selection-instructions');
@@ -81,6 +129,8 @@
 
     // Захватываем выделенную область
     captureSelection();
+
+    return false; // Предотвращаем дальнейшую обработку события
   }
 
   function handleKeyDown(e) {
@@ -148,34 +198,135 @@
       // Захватываем изображение с экрана
       try {
         // Пытаемся получить изображение с видео
-        const videoElement = document.querySelector('video');
-        if (videoElement) {
-          console.log('Найден элемент video, пытаемся захватить изображение с него');
+        const videoElements = document.querySelectorAll('video');
+        let captureSuccess = false;
 
-          // Проверяем, что видео воспроизводится
-          if (videoElement.readyState >= 2) {
-            // Рисуем видео на canvas
-            ctx.drawImage(
-              videoElement,
-              left - videoElement.getBoundingClientRect().left,
-              top - videoElement.getBoundingClientRect().top,
-              width,
-              height,
-              0,
-              0,
-              width,
-              height
-            );
-            console.log('Изображение успешно захвачено с видео');
-          } else {
-            console.log('Видео не готово для захвата, используем скриншот области');
-            // Используем скриншот области
-            ctx.drawImage(window, left, top, width, height, 0, 0, width, height);
+        // Проверяем, находится ли выделенная область внутри видео
+        for (const videoElement of videoElements) {
+          const videoRect = videoElement.getBoundingClientRect();
+
+          // Проверяем, пересекается ли выделенная область с видео
+          if (
+            left < videoRect.right &&
+            left + width > videoRect.left &&
+            top < videoRect.bottom &&
+            top + height > videoRect.top
+          ) {
+            console.log('Найден элемент video, пересекающийся с выделенной областью');
+
+            // Вычисляем координаты внутри видео
+            const videoLeft = Math.max(0, left - videoRect.left);
+            const videoTop = Math.max(0, top - videoRect.top);
+            const videoRight = Math.min(videoRect.width, videoLeft + width);
+            const videoBottom = Math.min(videoRect.height, videoTop + height);
+            const videoWidth = videoRight - videoLeft;
+            const videoHeight = videoBottom - videoTop;
+
+            // Проверяем, что видео готово для захвата
+            if (videoElement.readyState >= 2) {
+              // Создаем временный canvas для захвата видео
+              const tempCanvas = document.createElement('canvas');
+              tempCanvas.width = videoElement.videoWidth;
+              tempCanvas.height = videoElement.videoHeight;
+              const tempCtx = tempCanvas.getContext('2d');
+
+              // Рисуем все видео на временный canvas
+              tempCtx.drawImage(videoElement, 0, 0, videoElement.videoWidth, videoElement.videoHeight);
+
+              // Вычисляем масштаб между размером видео и его отображением
+              const scaleX = videoElement.videoWidth / videoRect.width;
+              const scaleY = videoElement.videoHeight / videoRect.height;
+
+              // Вычисляем координаты в исходном видео
+              const srcX = videoLeft * scaleX;
+              const srcY = videoTop * scaleY;
+              const srcWidth = videoWidth * scaleX;
+              const srcHeight = videoHeight * scaleY;
+
+              // Рисуем нужную часть видео на наш canvas
+              ctx.drawImage(
+                tempCanvas,
+                srcX, srcY, srcWidth, srcHeight,
+                0, 0, width, height
+              );
+
+              console.log('Изображение успешно захвачено с видео');
+              captureSuccess = true;
+              break;
+            }
           }
-        } else {
-          console.log('Элемент video не найден, используем скриншот области');
-          // Используем скриншот области
-          ctx.drawImage(window, left, top, width, height, 0, 0, width, height);
+        }
+
+        if (!captureSuccess) {
+          console.log('Не удалось захватить изображение с видео, пробуем другие методы');
+
+          try {
+            // Пробуем использовать html2canvas
+            const html2canvas = document.createElement('script');
+            html2canvas.src = 'https://html2canvas.hertzen.com/dist/html2canvas.min.js';
+            document.head.appendChild(html2canvas);
+
+            // Ждем загрузки html2canvas
+            await new Promise((resolve, reject) => {
+              html2canvas.onload = resolve;
+              html2canvas.onerror = reject;
+              // Таймаут на случай, если скрипт не загрузится
+              setTimeout(reject, 5000);
+            });
+
+            // Получаем элемент, который содержит выделенную область
+            const element = document.elementFromPoint(left + width/2, top + height/2);
+            if (element) {
+              console.log('Захват изображения с элемента:', element.tagName);
+
+              // Захватываем изображение с помощью html2canvas
+              const screenshot = await window.html2canvas(element, {
+                x: left - element.getBoundingClientRect().left,
+                y: top - element.getBoundingClientRect().top,
+                width: width,
+                height: height,
+                useCORS: true,
+                allowTaint: true,
+                logging: false
+              });
+
+              // Рисуем скриншот на наш canvas
+              ctx.drawImage(screenshot, 0, 0, width, height);
+              captureSuccess = true;
+            }
+          } catch (html2canvasError) {
+            console.error('Ошибка при использовании html2canvas:', html2canvasError);
+          }
+        }
+
+        // Если все методы не сработали, используем стандартный метод
+        if (!captureSuccess) {
+          console.log('Используем стандартный метод захвата');
+
+          // Создаем изображение из выделенной области
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+
+          // Создаем Data URL из выделенной области
+          const dataURL = `data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+            <foreignObject width="100%" height="100%">
+              <div xmlns="http://www.w3.org/1999/xhtml">
+                ${document.documentElement.outerHTML}
+              </div>
+            </foreignObject>
+          </svg>`;
+
+          img.src = dataURL;
+
+          // Ждем загрузки изображения
+          await new Promise((resolve) => {
+            img.onload = resolve;
+            // Таймаут на случай, если изображение не загрузится
+            setTimeout(resolve, 1000);
+          });
+
+          // Рисуем изображение на canvas
+          ctx.drawImage(img, left, top, width, height, 0, 0, width, height);
         }
       } catch (captureError) {
         console.error('Ошибка при захвате изображения:', captureError);
