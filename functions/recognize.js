@@ -61,6 +61,27 @@ exports.handler = async function(event, context) {
       };
     }
 
+    // Проверяем, что строка base64 имеет правильный формат
+    try {
+      const buffer = Buffer.from(imageBase64, 'base64');
+      if (buffer.length === 0) {
+        console.error('Empty buffer after base64 decoding');
+        return {
+          statusCode: 400,
+          headers: headers,
+          body: JSON.stringify({ error: 'Invalid base64 string (decodes to empty buffer)' })
+        };
+      }
+      console.log(`Successfully decoded base64 string to buffer of size: ${buffer.length} bytes`);
+    } catch (decodeError) {
+      console.error('Error decoding base64 string:', decodeError);
+      return {
+        statusCode: 400,
+        headers: headers,
+        body: JSON.stringify({ error: 'Invalid base64 string: ' + decodeError.message })
+      };
+    }
+
     // Проверяем размер изображения
     const sizeInBytes = Math.ceil((imageBase64.length * 3) / 4);
     const sizeInMB = sizeInBytes / (1024 * 1024);
@@ -86,6 +107,21 @@ exports.handler = async function(event, context) {
       console.log('Received response from Google Cloud Vision API');
     } catch (visionError) {
       console.error('Error from Google Cloud Vision API:', visionError);
+
+      // Проверяем, связана ли ошибка с биллингом
+      if (visionError.message && visionError.message.includes('PERMISSION_DENIED') && visionError.message.includes('billing')) {
+        console.error('Billing error detected. Please enable billing in Google Cloud Console.');
+        return {
+          statusCode: 402, // Payment Required
+          headers: headers,
+          body: JSON.stringify({
+            error: 'Google Cloud Vision API requires billing to be enabled. Please contact the extension developer.',
+            details: 'This API requires billing to be enabled in Google Cloud Console.',
+            billingRequired: true
+          })
+        };
+      }
+
       return {
         statusCode: 500,
         headers: headers,

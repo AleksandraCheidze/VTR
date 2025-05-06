@@ -145,14 +145,75 @@
       const left = Math.min(startX, endX);
       const top = Math.min(startY, endY);
 
+      // Захватываем изображение с экрана
+      try {
+        // Пытаемся получить изображение с видео
+        const videoElement = document.querySelector('video');
+        if (videoElement) {
+          console.log('Найден элемент video, пытаемся захватить изображение с него');
+
+          // Проверяем, что видео воспроизводится
+          if (videoElement.readyState >= 2) {
+            // Рисуем видео на canvas
+            ctx.drawImage(
+              videoElement,
+              left - videoElement.getBoundingClientRect().left,
+              top - videoElement.getBoundingClientRect().top,
+              width,
+              height,
+              0,
+              0,
+              width,
+              height
+            );
+            console.log('Изображение успешно захвачено с видео');
+          } else {
+            console.log('Видео не готово для захвата, используем скриншот области');
+            // Используем скриншот области
+            ctx.drawImage(window, left, top, width, height, 0, 0, width, height);
+          }
+        } else {
+          console.log('Элемент video не найден, используем скриншот области');
+          // Используем скриншот области
+          ctx.drawImage(window, left, top, width, height, 0, 0, width, height);
+        }
+      } catch (captureError) {
+        console.error('Ошибка при захвате изображения:', captureError);
+        // Если не удалось захватить изображение, показываем сообщение
+        alert('Не удалось захватить изображение. Попробуйте выделить другую область.');
+
+        // Удаляем индикатор загрузки и рамку выделения
+        if (selectionBox) {
+          document.body.removeChild(selectionBox);
+          selectionBox = null;
+        }
+        return null;
+      }
+
+      // Проверяем, что canvas не пустой
+      const imageData = ctx.getImageData(0, 0, width, height).data;
+      const isEmpty = !imageData.some(channel => channel !== 0);
+
+      if (isEmpty) {
+        console.error('Canvas пустой, не удалось захватить изображение');
+        alert('Не удалось захватить изображение. Попробуйте выделить другую область.');
+
+        // Удаляем индикатор загрузки и рамку выделения
+        if (selectionBox) {
+          document.body.removeChild(selectionBox);
+          selectionBox = null;
+        }
+        return null;
+      }
+
       // Уменьшаем размер изображения перед отправкой
       const maxWidth = 800;  // Уменьшаем максимальную ширину
       const maxHeight = 600; // Уменьшаем максимальную высоту
-      const quality = 0.6;   // Уменьшаем качество для меньшего размера
+      const quality = 0.8;   // Увеличиваем качество для лучшего распознавания
 
       console.log(`Оригинальный размер изображения: ${width}x${height}`);
 
-      let imageData;
+      let base64Data;
       if (width > maxWidth || height > maxHeight) {
         const ratio = Math.min(maxWidth / width, maxHeight / height);
         const newWidth = Math.floor(width * ratio);
@@ -166,20 +227,20 @@
         resizeCtx.drawImage(canvas, 0, 0, width, height, 0, 0, newWidth, newHeight);
 
         // Используем сжатое изображение
-        imageData = resizeCanvas.toDataURL('image/jpeg', quality).split(',')[1];
+        base64Data = resizeCanvas.toDataURL('image/jpeg', quality).split(',')[1];
 
         // Вычисляем размер в МБ
-        const sizeInBytes = Math.ceil((imageData.length * 3) / 4);
+        const sizeInBytes = Math.ceil((base64Data.length * 3) / 4);
         const sizeInMB = sizeInBytes / (1024 * 1024);
 
         console.log(`Изображение уменьшено с ${width}x${height} до ${newWidth}x${newHeight}`);
         console.log(`Размер изображения: ${sizeInMB.toFixed(2)} МБ`);
       } else {
         // Используем оригинальное изображение с небольшим сжатием
-        imageData = canvas.toDataURL('image/jpeg', quality).split(',')[1];
+        base64Data = canvas.toDataURL('image/jpeg', quality).split(',')[1];
 
         // Вычисляем размер в МБ
-        const sizeInBytes = Math.ceil((imageData.length * 3) / 4);
+        const sizeInBytes = Math.ceil((base64Data.length * 3) / 4);
         const sizeInMB = sizeInBytes / (1024 * 1024);
 
         console.log(`Оригинальное изображение: ${width}x${height}`);
@@ -223,7 +284,7 @@
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                imageBase64: imageData,
+                imageBase64: base64Data,
                 timestamp: new Date().toISOString() // Добавляем временную метку для предотвращения кэширования
               }),
               signal: controller.signal
@@ -234,8 +295,16 @@
             if (!response.ok) {
               const errorText = await response.text();
               console.error(`HTTP error! status: ${response.status}, response:`, errorText);
+
               try {
                 const errorJson = JSON.parse(errorText);
+
+                // Проверяем, связана ли ошибка с биллингом
+                if (errorJson.billingRequired) {
+                  alert('Для работы расширения необходимо включить биллинг в Google Cloud Console. Пожалуйста, свяжитесь с разработчиком расширения.');
+                  throw new Error('Google Cloud Vision API requires billing to be enabled');
+                }
+
                 throw new Error(`HTTP error! status: ${response.status}, message: ${errorJson.error || 'Unknown error'}`);
               } catch (e) {
                 throw new Error(`HTTP error! status: ${response.status}, response: ${errorText}`);
@@ -263,7 +332,7 @@
             chrome.runtime.sendMessage(
               {
                 action: "recognizeText",
-                imageBase64: imageData
+                imageBase64: base64Data
               },
               (response) => {
                 if (chrome.runtime.lastError) {
