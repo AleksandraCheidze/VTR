@@ -33,9 +33,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ imageBase64: request.imageBase64 })
     })
-    .then(response => response.json())
+    .then(async response => {
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`HTTP error! status: ${response.status}, response:`, errorText);
+        try {
+          const errorJson = JSON.parse(errorText);
+          throw new Error(`HTTP error! status: ${response.status}, message: ${errorJson.error || 'Unknown error'}`);
+        } catch (e) {
+          throw new Error(`HTTP error! status: ${response.status}, response: ${errorText}`);
+        }
+      }
+      return response.json();
+    })
     .then(data => {
       console.log('Получен ответ от сервера:', data);
+      // Проверяем, что в ответе есть текст
+      if (!data.text && data.error) {
+        throw new Error(`API error: ${data.error}`);
+      }
       // Отправляем результат обратно в content-script.js
       sendResponse({ success: true, data: data });
     })

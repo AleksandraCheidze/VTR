@@ -145,8 +145,46 @@
       const left = Math.min(startX, endX);
       const top = Math.min(startY, endY);
 
-      // Используем API захвата экрана, если доступно
-      const imageData = canvas.toDataURL('image/jpeg').split(',')[1];
+      // Уменьшаем размер изображения перед отправкой
+      const maxWidth = 800;  // Уменьшаем максимальную ширину
+      const maxHeight = 600; // Уменьшаем максимальную высоту
+      const quality = 0.6;   // Уменьшаем качество для меньшего размера
+
+      console.log(`Оригинальный размер изображения: ${width}x${height}`);
+
+      let imageData;
+      if (width > maxWidth || height > maxHeight) {
+        const ratio = Math.min(maxWidth / width, maxHeight / height);
+        const newWidth = Math.floor(width * ratio);
+        const newHeight = Math.floor(height * ratio);
+
+        const resizeCanvas = document.createElement('canvas');
+        resizeCanvas.width = newWidth;
+        resizeCanvas.height = newHeight;
+
+        const resizeCtx = resizeCanvas.getContext('2d');
+        resizeCtx.drawImage(canvas, 0, 0, width, height, 0, 0, newWidth, newHeight);
+
+        // Используем сжатое изображение
+        imageData = resizeCanvas.toDataURL('image/jpeg', quality).split(',')[1];
+
+        // Вычисляем размер в МБ
+        const sizeInBytes = Math.ceil((imageData.length * 3) / 4);
+        const sizeInMB = sizeInBytes / (1024 * 1024);
+
+        console.log(`Изображение уменьшено с ${width}x${height} до ${newWidth}x${newHeight}`);
+        console.log(`Размер изображения: ${sizeInMB.toFixed(2)} МБ`);
+      } else {
+        // Используем оригинальное изображение с небольшим сжатием
+        imageData = canvas.toDataURL('image/jpeg', quality).split(',')[1];
+
+        // Вычисляем размер в МБ
+        const sizeInBytes = Math.ceil((imageData.length * 3) / 4);
+        const sizeInMB = sizeInBytes / (1024 * 1024);
+
+        console.log(`Оригинальное изображение: ${width}x${height}`);
+        console.log(`Размер изображения: ${sizeInMB.toFixed(2)} МБ`);
+      }
 
       // Удаляем рамку выделения
       if (selectionBox) {
@@ -169,82 +207,133 @@
       loadingIndicator.id = 'loading-indicator';
       document.body.appendChild(loadingIndicator);
 
-      // Пробуем оба способа отправки запроса: напрямую и через background.js
+      // Используем Tesseract.js для локального распознавания текста
       try {
         let data;
 
         try {
-          // Сначала пробуем отправить запрос напрямую
-          console.log('Отправка запроса напрямую...');
+          console.log('Загрузка Tesseract.js...');
 
-          // Пробуем три разных способа отправки запроса
-          let response;
+          // Загружаем Tesseract.js
+          if (!window.Tesseract) {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js';
+            document.head.appendChild(script);
 
-          try {
-            // Способ 1: Прямой запрос к функции recognize
-            response = await fetch('https://velvety-piroshki-542402.netlify.app/.netlify/functions/recognize', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ imageBase64: imageData })
+            await new Promise((resolve) => {
+              script.onload = resolve;
             });
-          } catch (error1) {
-            console.error('Ошибка при прямом запросе к функции recognize:', error1);
+          }
+
+          console.log('Tesseract.js загружен, начинаем распознавание...');
+
+          // Создаем изображение из base64
+          const img = new Image();
+          img.src = 'data:image/jpeg;base64,' + imageData;
+
+          await new Promise((resolve) => {
+            img.onload = resolve;
+          });
+
+          // Создаем воркер
+          const worker = await Tesseract.createWorker({
+            logger: m => {
+              console.log(m);
+              // Обновляем текст индикатора загрузки
+              const indicator = document.getElementById('loading-indicator');
+              if (indicator && m.status) {
+                indicator.textContent = `Распознавание текста: ${m.status} (${Math.round(m.progress * 100)}%)`;
+              }
+            }
+          });
+
+          // Загружаем языковые данные
+          await worker.loadLanguage('eng+rus');
+          await worker.initialize('eng+rus');
+
+          // Распознаем текст
+          const result = await worker.recognize(img);
+          console.log('Результат распознавания:', result);
+
+          // Освобождаем ресурсы
+          await worker.terminate();
+
+          // Формируем данные в том же формате, что и от сервера
+          data = { text: result.data.text };
+          console.log('Текст распознан локально:', data.text);
+        } catch (tesseractError) {
+          console.error('Ошибка при локальном распознавании:', tesseractError);
+
+          // Если локальное распознавание не удалось, пробуем через сервер
+          console.log('Отправка запроса на сервер...');
+          try {
+            // Пробуем отправить запрос на сервер
+            // Добавляем таймаут для запроса
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 секунд таймаут
 
             try {
-              // Способ 2: Запрос через прокси-сервер
-              response = await fetch('https://velvety-piroshki-542402.netlify.app/.netlify/functions/cors-proxy', {
+              const response = await fetch('https://velvety-piroshki-542402.netlify.app/.netlify/functions/recognize', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  url: 'https://velvety-piroshki-542402.netlify.app/.netlify/functions/recognize',
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: { imageBase64: imageData }
-                })
+                  imageBase64: imageData,
+                  timestamp: new Date().toISOString() // Добавляем временную метку для предотвращения кэширования
+                }),
+                signal: controller.signal
               });
-            } catch (error2) {
-              console.error('Ошибка при запросе через прокси-сервер:', error2);
 
-              // Способ 3: Запрос через API
-              response = await fetch('https://velvety-piroshki-542402.netlify.app/api/recognize', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ imageBase64: imageData })
-              });
-            }
-          }
+              clearTimeout(timeoutId); // Очищаем таймаут, если запрос успешно выполнен
 
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-
-          data = await response.json();
-          console.log('Получен ответ от сервера (прямой запрос):', data);
-        } catch (directError) {
-          console.error('Ошибка при прямом запросе:', directError);
-
-          // Если прямой запрос не удался, пробуем через background.js
-          console.log('Отправка запроса через background.js...');
-          data = await new Promise((resolve, reject) => {
-            chrome.runtime.sendMessage(
-              {
-                action: "recognizeText",
-                imageBase64: imageData
-              },
-              (response) => {
-                if (chrome.runtime.lastError) {
-                  reject(new Error(chrome.runtime.lastError.message));
-                } else if (response && response.success) {
-                  resolve(response.data);
-                } else if (response && !response.success) {
-                  reject(new Error(response.error || 'Неизвестная ошибка'));
-                } else {
-                  reject(new Error('Не получен ответ от background.js'));
+              if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`HTTP error! status: ${response.status}, response:`, errorText);
+                try {
+                  const errorJson = JSON.parse(errorText);
+                  throw new Error(`HTTP error! status: ${response.status}, message: ${errorJson.error || 'Unknown error'}`);
+                } catch (e) {
+                  throw new Error(`HTTP error! status: ${response.status}, response: ${errorText}`);
                 }
               }
-            );
-          });
-          console.log('Получен ответ от сервера (через background.js):', data);
+
+              data = await response.json();
+              console.log('Получен ответ от сервера:', data);
+
+              // Проверяем, что в ответе есть текст
+              if (!data.text && data.error) {
+                throw new Error(`API error: ${data.error}`);
+              }
+            } catch (fetchError) {
+              clearTimeout(timeoutId); // Очищаем таймаут в случае ошибки
+              console.error('Ошибка при запросе на сервер:', fetchError);
+              throw fetchError; // Передаем ошибку дальше
+            }
+          } catch (serverError) {
+            console.error('Ошибка при запросе на сервер:', serverError);
+
+            // Если запрос на сервер не удался, пробуем через background.js
+            console.log('Отправка запроса через background.js...');
+            data = await new Promise((resolve, reject) => {
+              chrome.runtime.sendMessage(
+                {
+                  action: "recognizeText",
+                  imageBase64: imageData
+                },
+                (response) => {
+                  if (chrome.runtime.lastError) {
+                    reject(new Error(chrome.runtime.lastError.message));
+                  } else if (response && response.success) {
+                    resolve(response.data);
+                  } else if (response && !response.success) {
+                    reject(new Error(response.error || 'Неизвестная ошибка'));
+                  } else {
+                    reject(new Error('Не получен ответ от background.js'));
+                  }
+                }
+              );
+            });
+            console.log('Получен ответ от сервера (через background.js):', data);
+          }
         }
 
         // Удаляем индикатор загрузки

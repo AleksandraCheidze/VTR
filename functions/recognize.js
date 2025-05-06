@@ -6,6 +6,12 @@ const client = new ImageAnnotatorClient({
 });
 
 exports.handler = async function(event, context) {
+  console.log('Received request:', {
+    httpMethod: event.httpMethod,
+    path: event.path,
+    headers: event.headers,
+    bodyLength: event.body ? event.body.length : 0
+  });
   // Добавляем заголовки CORS
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -45,10 +51,63 @@ exports.handler = async function(event, context) {
       };
     }
 
-    // Отправляем запрос в Google Cloud Vision API
-    const [result] = await client.textDetection({
-      image: { content: imageBase64 },
-    });
+    // Проверяем, что imageBase64 - это действительно base64-строка
+    if (!imageBase64 || typeof imageBase64 !== 'string' || imageBase64.trim() === '') {
+      console.error('Invalid imageBase64:', typeof imageBase64);
+      return {
+        statusCode: 400,
+        headers: headers,
+        body: JSON.stringify({ error: 'Invalid imageBase64 parameter' })
+      };
+    }
+
+    // Проверяем размер изображения
+    const sizeInBytes = Math.ceil((imageBase64.length * 3) / 4);
+    const sizeInMB = sizeInBytes / (1024 * 1024);
+    console.log(`Image size: ${sizeInMB.toFixed(2)} MB`);
+
+    if (sizeInMB > 10) {
+      console.error('Image too large:', sizeInMB.toFixed(2), 'MB');
+      return {
+        statusCode: 400,
+        headers: headers,
+        body: JSON.stringify({ error: 'Image too large. Maximum size is 10 MB.' })
+      };
+    }
+
+    let result;
+    try {
+      // Отправляем запрос в Google Cloud Vision API
+      console.log('Sending request to Google Cloud Vision API...');
+      const response = await client.textDetection({
+        image: { content: imageBase64 },
+      });
+      result = response[0];
+      console.log('Received response from Google Cloud Vision API');
+    } catch (visionError) {
+      console.error('Error from Google Cloud Vision API:', visionError);
+      return {
+        statusCode: 500,
+        headers: headers,
+        body: JSON.stringify({
+          error: 'Error from Google Cloud Vision API: ' + visionError.message,
+          details: visionError.toString()
+        })
+      };
+    }
+
+    // Проверяем результат
+    if (!result || !result.fullTextAnnotation) {
+      console.log('No text detected in the image');
+      return {
+        statusCode: 200,
+        headers: headers,
+        body: JSON.stringify({
+          text: '',
+          message: 'No text detected in the image'
+        })
+      };
+    }
 
     // Возвращаем результат
     return {
