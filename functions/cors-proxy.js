@@ -1,10 +1,4 @@
-const { ImageAnnotatorClient } = require('@google-cloud/vision');
-
-// Создаем клиент Google Cloud Vision API
-const client = new ImageAnnotatorClient({
-  credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS)
-});
-
+// Прокси-сервер для обхода ограничений CORS
 exports.handler = async function(event, context) {
   // Добавляем заголовки CORS
   const headers = {
@@ -13,7 +7,7 @@ exports.handler = async function(event, context) {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Content-Type': 'application/json'
   };
-
+  
   // Обрабатываем preflight запросы
   if (event.httpMethod === 'OPTIONS') {
     return {
@@ -22,7 +16,7 @@ exports.handler = async function(event, context) {
       body: ''
     };
   }
-
+  
   // Проверяем метод запроса
   if (event.httpMethod !== 'POST') {
     return {
@@ -35,28 +29,31 @@ exports.handler = async function(event, context) {
   try {
     // Парсим тело запроса
     const requestBody = JSON.parse(event.body);
-    const imageBase64 = requestBody.imageBase64;
+    const { url, method, headers: requestHeaders, body } = requestBody;
 
-    if (!imageBase64) {
+    if (!url) {
       return {
         statusCode: 400,
         headers: headers,
-        body: JSON.stringify({ error: 'Missing imageBase64 parameter' })
+        body: JSON.stringify({ error: 'Missing url parameter' })
       };
     }
 
-    // Отправляем запрос в Google Cloud Vision API
-    const [result] = await client.textDetection({
-      image: { content: imageBase64 },
+    // Отправляем запрос на указанный URL
+    const response = await fetch(url, {
+      method: method || 'GET',
+      headers: requestHeaders || {},
+      body: body ? JSON.stringify(body) : undefined
     });
+
+    // Получаем ответ
+    const responseData = await response.json();
 
     // Возвращаем результат
     return {
       statusCode: 200,
       headers: headers,
-      body: JSON.stringify({
-        text: result.fullTextAnnotation?.text || ''
-      })
+      body: JSON.stringify(responseData)
     };
   } catch (error) {
     console.error('Error:', error);
