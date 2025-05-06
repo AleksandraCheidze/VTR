@@ -2,3 +2,12 @@ node_modules/
 npm-debug.log
 .env
 .DS_Store
+
+# Google Cloud credentials
+service-account-key.json
+*-key.json
+*.pem
+*.p12
+
+# Local Netlify folder
+.netlify
