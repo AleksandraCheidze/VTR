@@ -207,167 +207,110 @@
       loadingIndicator.id = 'loading-indicator';
       document.body.appendChild(loadingIndicator);
 
-      // Используем Tesseract.js для локального распознавания текста
+      // Отправляем изображение на сервер для распознавания
       try {
         let data;
 
+        console.log('Отправка запроса на сервер...');
         try {
-          console.log('Загрузка Tesseract.js...');
+          // Пробуем отправить запрос на сервер
+          // Добавляем таймаут для запроса
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 секунд таймаут
 
-          // Загружаем Tesseract.js
-          if (!window.Tesseract) {
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js';
-            document.head.appendChild(script);
-
-            await new Promise((resolve) => {
-              script.onload = resolve;
-            });
-          }
-
-          console.log('Tesseract.js загружен, начинаем распознавание...');
-
-          // Создаем изображение из base64
-          const img = new Image();
-          img.src = 'data:image/jpeg;base64,' + imageData;
-
-          await new Promise((resolve) => {
-            img.onload = resolve;
-          });
-
-          // Создаем воркер
-          const worker = await Tesseract.createWorker({
-            logger: m => {
-              console.log(m);
-              // Обновляем текст индикатора загрузки
-              const indicator = document.getElementById('loading-indicator');
-              if (indicator && m.status) {
-                indicator.textContent = `Распознавание текста: ${m.status} (${Math.round(m.progress * 100)}%)`;
-              }
-            }
-          });
-
-          // Загружаем языковые данные
-          await worker.loadLanguage('eng+rus');
-          await worker.initialize('eng+rus');
-
-          // Распознаем текст
-          const result = await worker.recognize(img);
-          console.log('Результат распознавания:', result);
-
-          // Освобождаем ресурсы
-          await worker.terminate();
-
-          // Формируем данные в том же формате, что и от сервера
-          data = { text: result.data.text };
-          console.log('Текст распознан локально:', data.text);
-        } catch (tesseractError) {
-          console.error('Ошибка при локальном распознавании:', tesseractError);
-
-          // Если локальное распознавание не удалось, пробуем через сервер
-          console.log('Отправка запроса на сервер...');
           try {
-            // Пробуем отправить запрос на сервер
-            // Добавляем таймаут для запроса
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 секунд таймаут
-
-            try {
-              const response = await fetch('https://velvety-piroshki-542402.netlify.app/.netlify/functions/recognize', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  imageBase64: imageData,
-                  timestamp: new Date().toISOString() // Добавляем временную метку для предотвращения кэширования
-                }),
-                signal: controller.signal
-              });
-
-              clearTimeout(timeoutId); // Очищаем таймаут, если запрос успешно выполнен
-
-              if (!response.ok) {
-                const errorText = await response.text();
-                console.error(`HTTP error! status: ${response.status}, response:`, errorText);
-                try {
-                  const errorJson = JSON.parse(errorText);
-                  throw new Error(`HTTP error! status: ${response.status}, message: ${errorJson.error || 'Unknown error'}`);
-                } catch (e) {
-                  throw new Error(`HTTP error! status: ${response.status}, response: ${errorText}`);
-                }
-              }
-
-              data = await response.json();
-              console.log('Получен ответ от сервера:', data);
-
-              // Проверяем, что в ответе есть текст
-              if (!data.text && data.error) {
-                throw new Error(`API error: ${data.error}`);
-              }
-            } catch (fetchError) {
-              clearTimeout(timeoutId); // Очищаем таймаут в случае ошибки
-              console.error('Ошибка при запросе на сервер:', fetchError);
-              throw fetchError; // Передаем ошибку дальше
-            }
-          } catch (serverError) {
-            console.error('Ошибка при запросе на сервер:', serverError);
-
-            // Если запрос на сервер не удался, пробуем через background.js
-            console.log('Отправка запроса через background.js...');
-            data = await new Promise((resolve, reject) => {
-              chrome.runtime.sendMessage(
-                {
-                  action: "recognizeText",
-                  imageBase64: imageData
-                },
-                (response) => {
-                  if (chrome.runtime.lastError) {
-                    reject(new Error(chrome.runtime.lastError.message));
-                  } else if (response && response.success) {
-                    resolve(response.data);
-                  } else if (response && !response.success) {
-                    reject(new Error(response.error || 'Неизвестная ошибка'));
-                  } else {
-                    reject(new Error('Не получен ответ от background.js'));
-                  }
-                }
-              );
+            const response = await fetch('https://velvety-piroshki-542402.netlify.app/.netlify/functions/recognize', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                imageBase64: imageData,
+                timestamp: new Date().toISOString() // Добавляем временную метку для предотвращения кэширования
+              }),
+              signal: controller.signal
             });
-            console.log('Получен ответ от сервера (через background.js):', data);
+
+            clearTimeout(timeoutId); // Очищаем таймаут, если запрос успешно выполнен
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error(`HTTP error! status: ${response.status}, response:`, errorText);
+              try {
+                const errorJson = JSON.parse(errorText);
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorJson.error || 'Unknown error'}`);
+              } catch (e) {
+                throw new Error(`HTTP error! status: ${response.status}, response: ${errorText}`);
+              }
+            }
+
+            data = await response.json();
+            console.log('Получен ответ от сервера:', data);
+
+            // Проверяем, что в ответе есть текст
+            if (!data.text && data.error) {
+              throw new Error(`API error: ${data.error}`);
+          } catch (fetchError) {
+            clearTimeout(timeoutId); // Очищаем таймаут в случае ошибки
+            console.error('Ошибка при запросе на сервер:', fetchError);
+            throw fetchError; // Передаем ошибку дальше
           }
+        } catch (serverError) {
+          console.error('Ошибка при запросе на сервер:', serverError);
+
+          // Если запрос на сервер не удался, пробуем через background.js
+          console.log('Отправка запроса через background.js...');
+          data = await new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage(
+              {
+                action: "recognizeText",
+                imageBase64: imageData
+              },
+              (response) => {
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message));
+                } else if (response && response.success) {
+                  resolve(response.data);
+                } else if (response && !response.success) {
+                  reject(new Error(response.error || 'Неизвестная ошибка'));
+                } else {
+                  reject(new Error('Не получен ответ от background.js'));
+                }
+              }
+            );
+          });
+          console.log('Получен ответ от сервера (через background.js):', data);
         }
+      // Удаляем индикатор загрузки
+      const indicator = document.getElementById('loading-indicator');
+      if (indicator) {
+        document.body.removeChild(indicator);
+      }
 
-        // Удаляем индикатор загрузки
-        const indicator = document.getElementById('loading-indicator');
-        if (indicator) {
-          document.body.removeChild(indicator);
-        }
+      if (data.text) {
+        // Копируем текст в буфер обмена
+        await navigator.clipboard.writeText(data.text);
 
-        if (data.text) {
-          // Копируем текст в буфер обмена
-          await navigator.clipboard.writeText(data.text);
+        // Показываем уведомление
+        const notification = document.createElement('div');
+        notification.style.position = 'fixed';
+        notification.style.top = '10px';
+        notification.style.right = '10px';
+        notification.style.backgroundColor = 'rgba(0, 128, 0, 0.8)';
+        notification.style.color = 'white';
+        notification.style.padding = '10px';
+        notification.style.borderRadius = '5px';
+        notification.style.zIndex = '10001';
+        notification.style.maxWidth = '300px';
+        notification.style.wordWrap = 'break-word';
+        notification.innerHTML = `<strong>Текст скопирован:</strong><br>${data.text}`;
+        document.body.appendChild(notification);
 
-          // Показываем уведомление
-          const notification = document.createElement('div');
-          notification.style.position = 'fixed';
-          notification.style.top = '10px';
-          notification.style.right = '10px';
-          notification.style.backgroundColor = 'rgba(0, 128, 0, 0.8)';
-          notification.style.color = 'white';
-          notification.style.padding = '10px';
-          notification.style.borderRadius = '5px';
-          notification.style.zIndex = '10001';
-          notification.style.maxWidth = '300px';
-          notification.style.wordWrap = 'break-word';
-          notification.innerHTML = `<strong>Текст скопирован:</strong><br>${data.text}`;
-          document.body.appendChild(notification);
-
-          // Удаляем уведомление через 5 секунд
-          setTimeout(() => {
-            document.body.removeChild(notification);
-          }, 5000);
-        } else {
-          alert('Текст не распознан. Попробуйте выделить другую область.');
-        }
+        // Удаляем уведомление через 5 секунд
+        setTimeout(() => {
+          document.body.removeChild(notification);
+        }, 5000);
+      } else {
+        alert('Текст не распознан. Попробуйте выделить другую область.');
+      }
       } catch (error) {
         // Удаляем индикатор загрузки
         const indicator = document.getElementById('loading-indicator');
