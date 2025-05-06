@@ -100,11 +100,43 @@ exports.handler = async function(event, context) {
     try {
       // Отправляем запрос в Google Cloud Vision API
       console.log('Sending request to Google Cloud Vision API...');
+      console.log('Google Cloud credentials project ID:', JSON.parse(process.env.GOOGLE_CREDENTIALS).project_id);
+
+      // Проверяем, что клиент инициализирован правильно
+      if (!client) {
+        console.error('Google Cloud Vision client is not initialized');
+        return {
+          statusCode: 500,
+          headers: headers,
+          body: JSON.stringify({
+            error: 'Google Cloud Vision client is not initialized',
+            details: 'Please check your Google Cloud credentials'
+          })
+        };
+      }
+
+      // Отправляем запрос
       const response = await client.textDetection({
         image: { content: imageBase64 },
       });
+
+      // Проверяем ответ
+      if (!response || !response[0]) {
+        console.error('Empty response from Google Cloud Vision API');
+        return {
+          statusCode: 500,
+          headers: headers,
+          body: JSON.stringify({
+            error: 'Empty response from Google Cloud Vision API',
+            details: 'The API returned an empty response'
+          })
+        };
+      }
+
       result = response[0];
       console.log('Received response from Google Cloud Vision API');
+      console.log('Response type:', typeof result);
+      console.log('Response has fullTextAnnotation:', !!result.fullTextAnnotation);
     } catch (visionError) {
       console.error('Error from Google Cloud Vision API:', visionError);
 
@@ -135,6 +167,24 @@ exports.handler = async function(event, context) {
     // Проверяем результат
     if (!result || !result.fullTextAnnotation) {
       console.log('No text detected in the image');
+      console.log('Result object keys:', result ? Object.keys(result) : 'null');
+
+      // Проверяем, есть ли текстовые аннотации
+      if (result && result.textAnnotations && result.textAnnotations.length > 0) {
+        console.log('Found text annotations:', result.textAnnotations.length);
+        const text = result.textAnnotations[0].description;
+        console.log('Text from textAnnotations:', text);
+
+        return {
+          statusCode: 200,
+          headers: headers,
+          body: JSON.stringify({
+            text: text,
+            source: 'textAnnotations'
+          })
+        };
+      }
+
       return {
         statusCode: 200,
         headers: headers,
@@ -145,12 +195,17 @@ exports.handler = async function(event, context) {
       };
     }
 
+    // Получаем текст из fullTextAnnotation
+    const text = result.fullTextAnnotation?.text || '';
+    console.log('Text detected:', text.substring(0, 100) + (text.length > 100 ? '...' : ''));
+
     // Возвращаем результат
     return {
       statusCode: 200,
       headers: headers,
       body: JSON.stringify({
-        text: result.fullTextAnnotation?.text || ''
+        text: text,
+        source: 'fullTextAnnotation'
       })
     };
   } catch (error) {
