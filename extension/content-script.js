@@ -54,16 +54,39 @@
     // Добавляем инструкции
     const instructions = document.createElement('div');
     instructions.style.position = 'fixed';
-    instructions.style.top = '10px';
+    instructions.style.top = '20px';
     instructions.style.left = '50%';
     instructions.style.transform = 'translateX(-50%)';
-    instructions.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    instructions.style.backgroundColor = 'rgba(25, 118, 210, 0.95)'; // Синий цвет
     instructions.style.color = 'white';
-    instructions.style.padding = '10px';
-    instructions.style.borderRadius = '5px';
+    instructions.style.padding = '15px 20px';
+    instructions.style.borderRadius = '8px';
     instructions.style.zIndex = '10001';
-    instructions.textContent = 'Зажмите Ctrl и выделите область с текстом. Нажмите ESC для отмены.';
+    instructions.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.3)';
+    instructions.style.fontFamily = 'Arial, sans-serif';
+    instructions.style.fontSize = '16px';
+    instructions.style.fontWeight = 'bold';
+    instructions.style.maxWidth = '90%';
+    instructions.style.textAlign = 'center';
+    instructions.style.transition = 'opacity 0.3s ease-in-out';
+    instructions.innerHTML = '<span style="font-size: 18px;">📝</span> <b>Hold Ctrl key</b> and select the area with text. Press <b>ESC</b> to cancel.';
     instructions.id = 'selection-instructions';
+
+    // Добавляем анимацию пульсации
+    const keyAnimation = document.createElement('style');
+    keyAnimation.textContent = `
+      @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+      }
+      #selection-instructions b {
+        animation: pulse 1.5s infinite;
+        color: #ffeb3b; /* Желтый цвет для выделения */
+      }
+    `;
+    document.head.appendChild(keyAnimation);
+
     document.body.appendChild(instructions);
 
     // Добавляем обработчики событий с опцией capture и passive: false
@@ -376,9 +399,47 @@
           ctx.drawImage(img, left, top, width, height, 0, 0, width, height);
         }
       } catch (captureError) {
-        console.error('Ошибка при захвате изображения:', captureError);
-        // Если не удалось захватить изображение, показываем сообщение
-        alert('Не удалось захватить изображение. Попробуйте выделить другую область.');
+        console.error('Error capturing image:', captureError);
+
+        // Создаем стилизованное уведомление об ошибке
+        const captureErrorNotification = document.createElement('div');
+        captureErrorNotification.style.position = 'fixed';
+        captureErrorNotification.style.top = '20px';
+        captureErrorNotification.style.left = '50%';
+        captureErrorNotification.style.transform = 'translateX(-50%)';
+        captureErrorNotification.style.backgroundColor = 'rgba(211, 47, 47, 0.95)'; // Красный цвет
+        captureErrorNotification.style.color = 'white';
+        captureErrorNotification.style.padding = '15px 20px';
+        captureErrorNotification.style.borderRadius = '8px';
+        captureErrorNotification.style.zIndex = '10001';
+        captureErrorNotification.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.3)';
+        captureErrorNotification.style.fontFamily = 'Arial, sans-serif';
+        captureErrorNotification.style.fontSize = '16px';
+        captureErrorNotification.style.textAlign = 'center';
+        captureErrorNotification.style.opacity = '0';
+        captureErrorNotification.style.transition = 'opacity 0.3s ease-in-out';
+        captureErrorNotification.innerHTML = `
+          <div style="display: flex; align-items: center;">
+            <span style="font-size: 20px; margin-right: 10px;">⚠️</span>
+            <strong>Failed to capture image. Please try selecting a different area.</strong>
+          </div>
+        `;
+        document.body.appendChild(captureErrorNotification);
+
+        // Анимация появления
+        setTimeout(() => {
+          captureErrorNotification.style.opacity = '1';
+        }, 10);
+
+        // Удаляем уведомление через 4 секунды
+        setTimeout(() => {
+          captureErrorNotification.style.opacity = '0';
+          setTimeout(() => {
+            if (captureErrorNotification.parentNode) {
+              document.body.removeChild(captureErrorNotification);
+            }
+          }, 300);
+        }, 4000);
 
         // Удаляем индикатор загрузки и рамку выделения
         if (selectionBox) {
@@ -393,8 +454,47 @@
       const isEmpty = !imageData.some(channel => channel !== 0);
 
       if (isEmpty) {
-        console.error('Canvas пустой, не удалось захватить изображение');
-        alert('Не удалось захватить изображение. Попробуйте выделить другую область.');
+        console.error('Canvas is empty, failed to capture image');
+
+        // Создаем стилизованное уведомление об ошибке
+        const emptyCanvasNotification = document.createElement('div');
+        emptyCanvasNotification.style.position = 'fixed';
+        emptyCanvasNotification.style.top = '20px';
+        emptyCanvasNotification.style.left = '50%';
+        emptyCanvasNotification.style.transform = 'translateX(-50%)';
+        emptyCanvasNotification.style.backgroundColor = 'rgba(211, 47, 47, 0.95)'; // Красный цвет
+        emptyCanvasNotification.style.color = 'white';
+        emptyCanvasNotification.style.padding = '15px 20px';
+        emptyCanvasNotification.style.borderRadius = '8px';
+        emptyCanvasNotification.style.zIndex = '10001';
+        emptyCanvasNotification.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.3)';
+        emptyCanvasNotification.style.fontFamily = 'Arial, sans-serif';
+        emptyCanvasNotification.style.fontSize = '16px';
+        emptyCanvasNotification.style.textAlign = 'center';
+        emptyCanvasNotification.style.opacity = '0';
+        emptyCanvasNotification.style.transition = 'opacity 0.3s ease-in-out';
+        emptyCanvasNotification.innerHTML = `
+          <div style="display: flex; align-items: center;">
+            <span style="font-size: 20px; margin-right: 10px;">⚠️</span>
+            <strong>Failed to capture image. Please try selecting a different area.</strong>
+          </div>
+        `;
+        document.body.appendChild(emptyCanvasNotification);
+
+        // Анимация появления
+        setTimeout(() => {
+          emptyCanvasNotification.style.opacity = '1';
+        }, 10);
+
+        // Удаляем уведомление через 4 секунды
+        setTimeout(() => {
+          emptyCanvasNotification.style.opacity = '0';
+          setTimeout(() => {
+            if (emptyCanvasNotification.parentNode) {
+              document.body.removeChild(emptyCanvasNotification);
+            }
+          }, 300);
+        }, 4000);
 
         // Удаляем индикатор загрузки и рамку выделения
         if (selectionBox) {
@@ -457,13 +557,38 @@
       loadingIndicator.style.top = '50%';
       loadingIndicator.style.left = '50%';
       loadingIndicator.style.transform = 'translate(-50%, -50%)';
-      loadingIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+      loadingIndicator.style.backgroundColor = 'rgba(25, 118, 210, 0.95)'; // Синий цвет
       loadingIndicator.style.color = 'white';
-      loadingIndicator.style.padding = '20px';
+      loadingIndicator.style.padding = '20px 30px';
       loadingIndicator.style.borderRadius = '10px';
       loadingIndicator.style.zIndex = '10001';
-      loadingIndicator.textContent = 'Распознавание текста...';
+      loadingIndicator.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.3)';
+      loadingIndicator.style.fontFamily = 'Arial, sans-serif';
+      loadingIndicator.style.fontSize = '16px';
+      loadingIndicator.style.textAlign = 'center';
+      loadingIndicator.style.minWidth = '200px';
       loadingIndicator.id = 'loading-indicator';
+
+      // Добавляем анимацию загрузки
+      loadingIndicator.innerHTML = `
+        <div style="display: flex; flex-direction: column; align-items: center;">
+          <div style="margin-bottom: 15px;">
+            <div class="spinner" style="border: 4px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top: 4px solid white; width: 30px; height: 30px; animation: spin 1s linear infinite;"></div>
+          </div>
+          <div>Recognizing text...</div>
+        </div>
+      `;
+
+      // Добавляем анимацию вращения
+      const spinnerAnimation = document.createElement('style');
+      spinnerAnimation.textContent = `
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `;
+      document.head.appendChild(spinnerAnimation);
+
       document.body.appendChild(loadingIndicator);
 
       // Отправляем изображение на сервер для распознавания
@@ -560,24 +685,92 @@
         // Показываем уведомление
         const notification = document.createElement('div');
         notification.style.position = 'fixed';
-        notification.style.top = '10px';
-        notification.style.right = '10px';
-        notification.style.backgroundColor = 'rgba(0, 128, 0, 0.8)';
+        notification.style.top = '20px';
+        notification.style.right = '20px';
+        notification.style.backgroundColor = 'rgba(46, 125, 50, 0.95)'; // Зеленый цвет
         notification.style.color = 'white';
-        notification.style.padding = '10px';
-        notification.style.borderRadius = '5px';
+        notification.style.padding = '15px 20px';
+        notification.style.borderRadius = '8px';
         notification.style.zIndex = '10001';
-        notification.style.maxWidth = '300px';
+        notification.style.maxWidth = '350px';
         notification.style.wordWrap = 'break-word';
-        notification.innerHTML = `<strong>Текст скопирован:</strong><br>${data.text}`;
+        notification.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.3)';
+        notification.style.fontFamily = 'Arial, sans-serif';
+        notification.style.fontSize = '14px';
+        notification.style.opacity = '0';
+        notification.style.transition = 'opacity 0.3s ease-in-out';
+
+        // Ограничиваем длину текста для отображения
+        const maxDisplayLength = 150;
+        const displayText = data.text.length > maxDisplayLength
+          ? data.text.substring(0, maxDisplayLength) + '...'
+          : data.text;
+
+        notification.innerHTML = `
+          <div style="display: flex; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 20px; margin-right: 8px;">✅</span>
+            <strong style="font-size: 16px;">Text copied to clipboard!</strong>
+          </div>
+          <div style="background-color: rgba(255, 255, 255, 0.1); padding: 8px; border-radius: 4px; max-height: 100px; overflow-y: auto;">
+            ${displayText}
+          </div>
+        `;
         document.body.appendChild(notification);
 
-        // Удаляем уведомление через 5 секунд
+        // Анимация появления
         setTimeout(() => {
-          document.body.removeChild(notification);
+          notification.style.opacity = '1';
+        }, 10);
+
+        // Удаляем уведомление через 5 секунд с анимацией
+        setTimeout(() => {
+          notification.style.opacity = '0';
+          setTimeout(() => {
+            if (notification.parentNode) {
+              document.body.removeChild(notification);
+            }
+          }, 300);
         }, 5000);
       } else {
-        alert('Текст не распознан. Попробуйте выделить другую область.');
+        // Создаем стилизованное уведомление вместо alert
+        const errorNotification = document.createElement('div');
+        errorNotification.style.position = 'fixed';
+        errorNotification.style.top = '20px';
+        errorNotification.style.left = '50%';
+        errorNotification.style.transform = 'translateX(-50%)';
+        errorNotification.style.backgroundColor = 'rgba(211, 47, 47, 0.95)'; // Красный цвет
+        errorNotification.style.color = 'white';
+        errorNotification.style.padding = '15px 20px';
+        errorNotification.style.borderRadius = '8px';
+        errorNotification.style.zIndex = '10001';
+        errorNotification.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.3)';
+        errorNotification.style.fontFamily = 'Arial, sans-serif';
+        errorNotification.style.fontSize = '16px';
+        errorNotification.style.textAlign = 'center';
+        errorNotification.style.opacity = '0';
+        errorNotification.style.transition = 'opacity 0.3s ease-in-out';
+        errorNotification.innerHTML = `
+          <div style="display: flex; align-items: center;">
+            <span style="font-size: 20px; margin-right: 10px;">⚠️</span>
+            <strong>No text detected. Please try selecting a different area.</strong>
+          </div>
+        `;
+        document.body.appendChild(errorNotification);
+
+        // Анимация появления
+        setTimeout(() => {
+          errorNotification.style.opacity = '1';
+        }, 10);
+
+        // Удаляем уведомление через 4 секунды
+        setTimeout(() => {
+          errorNotification.style.opacity = '0';
+          setTimeout(() => {
+            if (errorNotification.parentNode) {
+              document.body.removeChild(errorNotification);
+            }
+          }, 300);
+        }, 4000);
       }
       } catch (error) {
         // Удаляем индикатор загрузки
@@ -586,13 +779,108 @@
           document.body.removeChild(indicator);
         }
 
-        console.error('Ошибка при распознавании текста:', error);
-        alert('Ошибка при распознавании текста: ' + error.message + '\nПроверьте консоль для получения дополнительной информации.');
+        console.error('Error recognizing text:', error);
+
+        // Создаем стилизованное уведомление об ошибке
+        const errorNotification = document.createElement('div');
+        errorNotification.style.position = 'fixed';
+        errorNotification.style.top = '20px';
+        errorNotification.style.left = '50%';
+        errorNotification.style.transform = 'translateX(-50%)';
+        errorNotification.style.backgroundColor = 'rgba(211, 47, 47, 0.95)'; // Красный цвет
+        errorNotification.style.color = 'white';
+        errorNotification.style.padding = '15px 20px';
+        errorNotification.style.borderRadius = '8px';
+        errorNotification.style.zIndex = '10001';
+        errorNotification.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.3)';
+        errorNotification.style.fontFamily = 'Arial, sans-serif';
+        errorNotification.style.fontSize = '16px';
+        errorNotification.style.textAlign = 'center';
+        errorNotification.style.maxWidth = '80%';
+        errorNotification.style.opacity = '0';
+        errorNotification.style.transition = 'opacity 0.3s ease-in-out';
+
+        // Упрощаем сообщение об ошибке для пользователя
+        let userFriendlyMessage = 'Error recognizing text. Please try again.';
+
+        if (error.message.includes('billing')) {
+          userFriendlyMessage = 'API billing error. Please contact the extension developer.';
+        } else if (error.message.includes('timeout') || error.message.includes('network')) {
+          userFriendlyMessage = 'Network error. Please check your internet connection and try again.';
+        } else if (error.message.includes('permission')) {
+          userFriendlyMessage = 'Permission error. Please contact the extension developer.';
+        }
+
+        errorNotification.innerHTML = `
+          <div style="display: flex; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 20px; margin-right: 10px;">❌</span>
+            <strong>Error</strong>
+          </div>
+          <div>${userFriendlyMessage}</div>
+          <div style="font-size: 12px; margin-top: 8px; opacity: 0.8;">See console for details (F12)</div>
+        `;
+        document.body.appendChild(errorNotification);
+
+        // Анимация появления
+        setTimeout(() => {
+          errorNotification.style.opacity = '1';
+        }, 10);
+
+        // Удаляем уведомление через 6 секунд
+        setTimeout(() => {
+          errorNotification.style.opacity = '0';
+          setTimeout(() => {
+            if (errorNotification.parentNode) {
+              document.body.removeChild(errorNotification);
+            }
+          }, 300);
+        }, 6000);
       }
 
       return canvas;
     } catch (error) {
-      alert('Ошибка при захвате области: ' + error.message);
+      console.error('Error capturing area:', error);
+
+      // Создаем стилизованное уведомление об ошибке
+      const captureErrorNotification = document.createElement('div');
+      captureErrorNotification.style.position = 'fixed';
+      captureErrorNotification.style.top = '20px';
+      captureErrorNotification.style.left = '50%';
+      captureErrorNotification.style.transform = 'translateX(-50%)';
+      captureErrorNotification.style.backgroundColor = 'rgba(211, 47, 47, 0.95)'; // Красный цвет
+      captureErrorNotification.style.color = 'white';
+      captureErrorNotification.style.padding = '15px 20px';
+      captureErrorNotification.style.borderRadius = '8px';
+      captureErrorNotification.style.zIndex = '10001';
+      captureErrorNotification.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.3)';
+      captureErrorNotification.style.fontFamily = 'Arial, sans-serif';
+      captureErrorNotification.style.fontSize = '16px';
+      captureErrorNotification.style.textAlign = 'center';
+      captureErrorNotification.style.opacity = '0';
+      captureErrorNotification.style.transition = 'opacity 0.3s ease-in-out';
+      captureErrorNotification.innerHTML = `
+        <div style="display: flex; align-items: center;">
+          <span style="font-size: 20px; margin-right: 10px;">❌</span>
+          <strong>Error capturing area. Please try again.</strong>
+        </div>
+      `;
+      document.body.appendChild(captureErrorNotification);
+
+      // Анимация появления
+      setTimeout(() => {
+        captureErrorNotification.style.opacity = '1';
+      }, 10);
+
+      // Удаляем уведомление через 4 секунды
+      setTimeout(() => {
+        captureErrorNotification.style.opacity = '0';
+        setTimeout(() => {
+          if (captureErrorNotification.parentNode) {
+            document.body.removeChild(captureErrorNotification);
+          }
+        }, 300);
+      }, 4000);
+
       return null;
     }
   }
