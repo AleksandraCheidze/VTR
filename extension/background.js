@@ -2,6 +2,9 @@
 chrome.runtime.onInstalled.addListener(() => {
   console.log('Video Text Extractor расширение установлено');
 
+  // Wake-up ping Netlify (OPTIONS-запрос)
+  fetch('https://velvety-piroshki-542402.netlify.app/.netlify/functions/recognize', { method: 'OPTIONS' }).catch(() => {});
+
   // Инициализируем счетчик использований и статус лицензии при установке
   chrome.storage.local.get(['usageCount', 'licenseKey', 'isPro'], (result) => {
     if (result.usageCount === undefined) {
@@ -98,26 +101,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return;
       }
 
-      // Отправляем запрос на сервер
-      fetch('https://velvety-piroshki-542402.netlify.app/.netlify/functions/recognize', {
+      // Функция fetch с retry и timeout
+      async function fetchWithRetry(url, options = {}, retries = 3, delay = 1000) {
+        for (let i = 0; i < retries; i++) {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 сек
+            const res = await fetch(url, { ...options, signal: controller.signal });
+            clearTimeout(timeoutId);
+            if (!res.ok) throw new Error("Not OK");
+            return await res.json();
+          } catch (e) {
+            if (i === retries - 1) throw e;
+            await new Promise(r => setTimeout(r, delay));
+          }
+        }
+      }
+
+      // Отправляем запрос на сервер с retry
+      fetchWithRetry('https://velvety-piroshki-542402.netlify.app/.netlify/functions/recognize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageBase64: request.imageBase64 })
-      })
-      .then(async response => {
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`HTTP error! status: ${response.status}, response:`, errorText);
-          try {
-            const errorJson = JSON.parse(errorText);
-            throw new Error(`HTTP error! status: ${response.status}, message: ${errorJson.error || 'Unknown error'}`);
-          } catch (e) {
-            throw new Error(`HTTP error! status: ${response.status}, response: ${errorText}`);
-          }
-        }
-        return response.json();
-      })
-      .then(data => {
+      }).then(data => {
         console.log('Получен ответ от сервера:', data);
         // Проверяем, что в ответе есть текст
         if (!data.text && data.error) {
@@ -134,8 +140,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             remaining: usageInfo.isPro ? 'unlimited' : (FREE_USAGE_LIMIT - usageInfo.usageCount)
           }
         });
-      })
-      .catch(error => {
+      }).catch(error => {
         console.error('Ошибка при распознавании текста:', error);
         sendResponse({ success: false, error: error.message });
       });
