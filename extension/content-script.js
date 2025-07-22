@@ -717,9 +717,18 @@
                 if (chrome.runtime.lastError) {
                   reject(new Error(chrome.runtime.lastError.message));
                 } else if (response && response.success) {
+                  // Если есть информация об использовании, сохраняем ее
+                  if (response.usageInfo) {
+                    console.log('Usage info:', response.usageInfo);
+                  }
                   resolve(response.data);
                 } else if (response && !response.success) {
-                  reject(new Error(response.error || 'Неизвестная ошибка'));
+                  // Проверяем, достигнут ли лимит использований
+                  if (response.limitReached) {
+                    reject(new Error('FREE_LIMIT_REACHED'));
+                  } else {
+                    reject(new Error(response.error || 'Неизвестная ошибка'));
+                  }
                 } else {
                   reject(new Error('Не получен ответ от background.js'));
                 }
@@ -864,8 +873,12 @@
 
         // Упрощаем сообщение об ошибке для пользователя
         let userFriendlyMessage = 'Error recognizing text. Please try again.';
+        let showUpgradeButton = false;
 
-        if (error.message.includes('billing')) {
+        if (error.message === 'FREE_LIMIT_REACHED') {
+          userFriendlyMessage = 'You have reached the free usage limit (20 recognitions). Please upgrade to Pro version to continue using the extension.';
+          showUpgradeButton = true;
+        } else if (error.message.includes('billing')) {
           userFriendlyMessage = 'API billing error. Please contact the extension developer.';
         } else if (error.message.includes('timeout') || error.message.includes('network')) {
           userFriendlyMessage = 'Network error. Please check your internet connection and try again.';
@@ -873,19 +886,55 @@
           userFriendlyMessage = 'Permission error. Please contact the extension developer.';
         }
 
-        errorNotification.innerHTML = `
+        let notificationContent = `
           <div style="display: flex; align-items: center; margin-bottom: 8px;">
             <span style="font-size: 20px; margin-right: 10px;">❌</span>
             <strong>Error</strong>
           </div>
           <div>${userFriendlyMessage}</div>
-          <div style="font-size: 12px; margin-top: 8px; opacity: 0.8;">See console for details (F12)</div>
         `;
+
+        // Добавляем кнопку для перехода на страницу покупки Pro-версии, если достигнут лимит
+        if (showUpgradeButton) {
+          notificationContent += `
+            <div style="margin-top: 15px;">
+              <button id="upgrade-to-pro-btn" style="background-color: #FFD700; color: #000; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; transition: background-color 0.3s;">
+                Upgrade to Pro
+              </button>
+            </div>
+          `;
+        } else {
+          notificationContent += `
+            <div style="font-size: 12px; margin-top: 8px; opacity: 0.8;">See console for details (F12)</div>
+          `;
+        }
+
+        errorNotification.innerHTML = notificationContent;
         document.body.appendChild(errorNotification);
 
         // Анимация появления
         setTimeout(() => {
           errorNotification.style.opacity = '1';
+
+          // Добавляем обработчик нажатия на кнопку "Upgrade to Pro"
+          if (showUpgradeButton) {
+            const upgradeButton = document.getElementById('upgrade-to-pro-btn');
+            if (upgradeButton) {
+              upgradeButton.addEventListener('click', () => {
+                // Открываем страницу Gumroad для покупки Pro-версии
+                window.open('https://gumroad.com/l/YOUR_PRODUCT_ID', '_blank');
+              });
+
+              // Добавляем эффект при наведении
+              upgradeButton.addEventListener('mouseover', () => {
+                upgradeButton.style.backgroundColor = '#FFE44D';
+              });
+
+              upgradeButton.addEventListener('mouseout', () => {
+                upgradeButton.style.backgroundColor = '#FFD700';
+              });
+            }
+          }
         }, 10);
 
         // Удаляем уведомление через 6 секунд

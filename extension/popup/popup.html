@@ -9,7 +9,26 @@
   <div class="container">
     <h1>Video Text Extractor</h1>
     <p>Select text from videos and copy it to clipboard</p>
+
+    <!-- Usage info section -->
+    <div id="usage-info" class="usage-info">
+      <div class="loading-spinner"></div>
+      <p>Loading usage information...</p>
+    </div>
+
     <button id="start" class="button">Select Text from Video</button>
+
+    <!-- Pro version section (hidden by default) -->
+    <div id="pro-section" class="pro-section" style="display: none;">
+      <h2>Upgrade to Pro</h2>
+      <p>Unlimited text recognition with Pro version</p>
+      <div class="license-input">
+        <input type="text" id="license-key" placeholder="Enter license key">
+        <button id="activate-license" class="button secondary-button">Activate</button>
+      </div>
+      <div id="license-status"></div>
+      <button id="buy-pro" class="button buy-button">Buy Pro Version</button>
+    </div>
 
     <div class="instructions">
       <h2>Instructions:</h2>

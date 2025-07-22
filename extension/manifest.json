@@ -3,7 +3,7 @@
   "name": "Video Text Extractor",
   "version": "1.0",
   "description": "Extract and copy text from videos with one click. Hold Ctrl, select the area, and get the text instantly.",
-  "permissions": ["activeTab", "scripting", "clipboardWrite"],
+  "permissions": ["activeTab", "scripting", "clipboardWrite", "storage"],
   "host_permissions": [
     "<all_urls>",
     "https://velvety-piroshki-542402.netlify.app/*"
