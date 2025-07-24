@@ -6,7 +6,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.static('public'));
 
 const client = new ImageAnnotatorClient({
-  keyFilename: 'service-account-key.json' // Ваш JSON-ключ
+  keyFilename: 'service-account-key.json'
 });
 
 app.get('/', (req, res) => {
@@ -25,4 +25,4 @@ app.post('/api/recognize', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {});

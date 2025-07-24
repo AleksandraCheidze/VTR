@@ -62,7 +62,7 @@
             const recognizeBtn = document.getElementById('recognizeBtn');
             const resultDiv = document.getElementById('result');
 
-            // Preview the selected image
+       
             imageInput.addEventListener('change', function() {
                 const file = this.files[0];
                 if (file) {
@@ -75,7 +75,6 @@
                 }
             });
 
-            // Send the image to the API
             recognizeBtn.addEventListener('click', function() {
                 const file = imageInput.files[0];
                 if (!file) {
@@ -85,10 +84,9 @@
 
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    // Remove the data URL prefix (e.g., "data:image/jpeg;base64,")
+             
                     const base64Image = e.target.result.split(',')[1];
 
-                    // Send the request to the API
                     fetch('/.netlify/functions/recognize', {
                         method: 'POST',
                         headers: {

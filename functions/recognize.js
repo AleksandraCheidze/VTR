@@ -1,18 +1,13 @@
 const { ImageAnnotatorClient } = require('@google-cloud/vision');
 
-// Создаем клиент Google Cloud Vision API
+
 const client = new ImageAnnotatorClient({
   credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS)
 });
 
 exports.handler = async function(event, context) {
-  console.log('Received request:', {
-    httpMethod: event.httpMethod,
-    path: event.path,
-    headers: event.headers,
-    bodyLength: event.body ? event.body.length : 0
-  });
-  // Добавляем заголовки CORS
+
+
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -20,7 +15,7 @@ exports.handler = async function(event, context) {
     'Content-Type': 'application/json'
   };
 
-  // Обрабатываем preflight запросы
+
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
@@ -29,7 +24,7 @@ exports.handler = async function(event, context) {
     };
   }
 
-  // Проверяем метод запроса
+
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -39,7 +34,7 @@ exports.handler = async function(event, context) {
   }
 
   try {
-    // Парсим тело запроса
+
     const requestBody = JSON.parse(event.body);
     const imageBase64 = requestBody.imageBase64;
 
@@ -51,7 +46,7 @@ exports.handler = async function(event, context) {
       };
     }
 
-    // Проверяем, что imageBase64 - это действительно base64-строка
+
     if (!imageBase64 || typeof imageBase64 !== 'string' || imageBase64.trim() === '') {
       console.error('Invalid imageBase64:', typeof imageBase64);
       return {
@@ -61,7 +56,7 @@ exports.handler = async function(event, context) {
       };
     }
 
-    // Проверяем, что строка base64 имеет правильный формат
+
     try {
       const buffer = Buffer.from(imageBase64, 'base64');
       if (buffer.length === 0) {
@@ -72,7 +67,7 @@ exports.handler = async function(event, context) {
           body: JSON.stringify({ error: 'Invalid base64 string (decodes to empty buffer)' })
         };
       }
-      console.log(`Successfully decoded base64 string to buffer of size: ${buffer.length} bytes`);
+
     } catch (decodeError) {
       console.error('Error decoding base64 string:', decodeError);
       return {
@@ -82,7 +77,7 @@ exports.handler = async function(event, context) {
       };
     }
 
-    // Проверяем размер изображения
+
     const sizeInBytes = Math.ceil((imageBase64.length * 3) / 4);
     const sizeInMB = sizeInBytes / (1024 * 1024);
     console.log(`Image size: ${sizeInMB.toFixed(2)} MB`);
@@ -98,11 +93,11 @@ exports.handler = async function(event, context) {
 
     let result;
     try {
-      // Отправляем запрос в Google Cloud Vision API
+
       console.log('Sending request to Google Cloud Vision API...');
       console.log('Google Cloud credentials project ID:', JSON.parse(process.env.GOOGLE_CREDENTIALS).project_id);
 
-      // Проверяем, что клиент инициализирован правильно
+
       if (!client) {
         console.error('Google Cloud Vision client is not initialized');
         return {
@@ -115,12 +110,12 @@ exports.handler = async function(event, context) {
         };
       }
 
-      // Отправляем запрос
+
       const response = await client.textDetection({
         image: { content: imageBase64 },
       });
 
-      // Проверяем ответ
+
       if (!response || !response[0]) {
         console.error('Empty response from Google Cloud Vision API');
         return {
@@ -140,11 +135,11 @@ exports.handler = async function(event, context) {
     } catch (visionError) {
       console.error('Error from Google Cloud Vision API:', visionError);
 
-      // Проверяем, связана ли ошибка с биллингом
+
       if (visionError.message && visionError.message.includes('PERMISSION_DENIED') && visionError.message.includes('billing')) {
         console.error('Billing error detected. Please enable billing in Google Cloud Console.');
         return {
-          statusCode: 402, // Payment Required
+          statusCode: 402,
           headers: headers,
           body: JSON.stringify({
             error: 'Google Cloud Vision API requires billing to be enabled. Please contact the extension developer.',
@@ -164,12 +159,12 @@ exports.handler = async function(event, context) {
       };
     }
 
-    // Проверяем результат
+
     if (!result || !result.fullTextAnnotation) {
       console.log('No text detected in the image');
       console.log('Result object keys:', result ? Object.keys(result) : 'null');
 
-      // Проверяем, есть ли текстовые аннотации
+
       if (result && result.textAnnotations && result.textAnnotations.length > 0) {
         console.log('Found text annotations:', result.textAnnotations.length);
         const text = result.textAnnotations[0].description;
@@ -195,11 +190,11 @@ exports.handler = async function(event, context) {
       };
     }
 
-    // Получаем текст из fullTextAnnotation
+
     const text = result.fullTextAnnotation?.text || '';
     console.log('Text detected:', text.substring(0, 100) + (text.length > 100 ? '...' : ''));
 
-    // Возвращаем результат
+
     return {
       statusCode: 200,
       headers: headers,

@@ -65,7 +65,7 @@ p {
   background-color: #388E3C;
 }
 
-/* Usage info styles */
+
 .usage-info {
   background-color: #fff;
   padding: 12px;
@@ -108,7 +108,7 @@ p {
   margin-top: 5px;
 }
 
-/* Pro section styles */
+
 .pro-section {
   background-color: #fff;
   padding: 15px;
@@ -148,7 +148,7 @@ p {
   color: #388E3C;
 }
 
-/* Loading spinner */
+
 .loading-spinner {
   border: 3px solid rgba(0, 0, 0, 0.1);
   border-radius: 50%;

@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <g transform="translate(14, 44)">
-    <path d="M50 0C22.4 0 0 20 0 40C0 60 22.4 80 50 80C77.6 80 100 60 100 40C100 20 77.6 0 50 0ZM50 70C27.9 70 10 56.5 10 40C10 23.5 27.9 10 50 10C72.1 10 90 23.5 90 40C90 56.5 72.1 70 50 70Z" fill="#9C5FFF"/>
-    <path d="M50 20C38.95 20 30 29 30 40C30 51 38.95 60 50 60C61.05 60 70 51 70 40C70 29 61.05 20 50 20ZM45 50V30L60 40L45 50Z" fill="#9C5FFF"/>
-  </g>
-</svg>

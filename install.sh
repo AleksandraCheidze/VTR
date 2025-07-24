@@ -3,7 +3,7 @@
 URL=https://dl.google.com/dl/cloudsdk/channels/rapid/install_google_cloud_sdk.bash
 
 function download {
-  scratch="$(mktemp -d -t tmp.XXXXXXXXXX)" || exit
+
   script_file="$scratch/install_google_cloud_sdk.bash"
 
   echo "Downloading Google Cloud SDK install script: $URL"

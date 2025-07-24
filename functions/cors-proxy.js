@@ -1,6 +1,6 @@
-// Прокси-сервер для обхода ограничений CORS
+
 exports.handler = async function(event, context) {
-  // Добавляем заголовки CORS
+
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -8,7 +8,7 @@ exports.handler = async function(event, context) {
     'Content-Type': 'application/json'
   };
   
-  // Обрабатываем preflight запросы
+
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
@@ -17,7 +17,7 @@ exports.handler = async function(event, context) {
     };
   }
   
-  // Проверяем метод запроса
+
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -27,7 +27,7 @@ exports.handler = async function(event, context) {
   }
 
   try {
-    // Парсим тело запроса
+
     const requestBody = JSON.parse(event.body);
     const { url, method, headers: requestHeaders, body } = requestBody;
 
@@ -39,17 +39,17 @@ exports.handler = async function(event, context) {
       };
     }
 
-    // Отправляем запрос на указанный URL
+
     const response = await fetch(url, {
       method: method || 'GET',
       headers: requestHeaders || {},
       body: body ? JSON.stringify(body) : undefined
     });
 
-    // Получаем ответ
+
     const responseData = await response.json();
 
-    // Возвращаем результат
+
     return {
       statusCode: 200,
       headers: headers,
